@@ -11,6 +11,8 @@ import sys
 import time
 from pathlib import Path
 
+import os
+
 import cv2
 import numpy as np
 import torch
@@ -18,6 +20,7 @@ import torch.backends.cudnn as cudnn
 
 FILE = Path(__file__).absolute()
 sys.path.append(FILE.parents[0].as_posix())  # add yolov5/ to path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'vehicle_yolo'))
 
 from models.experimental import attempt_load
 from utils.datasets import LoadStreams, LoadImages
@@ -45,7 +48,7 @@ def run(weights='yolov5s.pt',  # model.pt path(s)
         augment=False,  # augmented inference
         visualize=False,  # visualize features
         update=False,  # update all models
-        project='runs/detect',  # save results to project/name
+        project='vehicle_yolo/runs/detect',  # save results to project/name
         name='exp',  # save results to project/name
         exist_ok=False,  # existing project/name ok, do not increment
         line_thickness=3,  # bounding box thickness (pixels)
