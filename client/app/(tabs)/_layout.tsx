@@ -11,7 +11,7 @@ export default function TabLayout() {
   return (
     <Stack>
       <Stack.Screen
-        name="index"
+        name="camera"
         // hide the header for the tab navigator
         options={{ headerShown: false }}
       />

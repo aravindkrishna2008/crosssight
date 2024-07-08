@@ -10,7 +10,6 @@ from flask_ngrok import run_with_ngrok
 
 
 app = Flask(__name__)
-run_with_ngrok(app)
 CORS(app)
 
 detector = Detector("./vehicle_yolo/vehicle_yolo5.pt")

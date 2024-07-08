@@ -16,8 +16,7 @@ class Detector():
     def getDistance(self, x, y, w, h):
         return 0
     
-    
 
 if __name__ == "__main__":
-    vehicle_detector = Detector()
-    vehicle_detector.detect("./vehicle_yolo/test_images/imtest18.jpg")
+    vehicle_detector = Detector("./vehicle_yolo/vehicle_yolo5.pt")
+    vehicle_detector.detect()
