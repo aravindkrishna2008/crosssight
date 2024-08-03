@@ -1,3 +1,4 @@
+import { Camera } from "expo-camera";
 import React, { useRef, useEffect } from "react";
 import { StyleSheet, View, Button } from "react-native";
 import { RNCamera } from "react-native-camera";
@@ -36,7 +37,7 @@ const CameraComponent = () => {
 
   return (
     <View style={styles.container}>
-      <RNCamera
+      <Camera
         ref={cameraRef}
         style={styles.preview}
         type={RNCamera.Constants.Type.back}

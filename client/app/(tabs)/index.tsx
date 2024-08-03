@@ -1,8 +1,5 @@
 import React from "react";
-import MapView from "react-native-maps";
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import Camera from "react-native-camera";
 import { useState, useRef, useEffect } from "react";
 import {
   Button,
@@ -12,6 +9,10 @@ import {
   View,
   Image,
 } from "react-native";
+
+import Map from "@/components/MapComponent";
+import Hamburger from "@/components/HamburgerComponent";
+import BottomPopUp from "@/components/BottomPopUp";
 
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -25,13 +26,47 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function App() {
   const [facing, setFacing] = useState("back");
   const [permission, requestPermission] = useCameraPermissions();
+  const [isLoading, setIsLoading] = useState(true);
 
-  const cameraRef = useRef(null);
+  const [mapVisible, setMapVisible] = useState(false);
+
+  useEffect(() => {
+    setIsLoading(false);
+  }, []);
+
+  const cameraRef = useRef<any>(null);
 
   if (!permission) {
     // Camera permissions are still loading.
     return <View />;
   }
+
+  if (isLoading) {
+    return <h1>Loading...</h1>;
+  }
+
+  // const intervalRef = useRef<any>(null);
+
+  // useEffect(() => {
+  //   return () => {
+  //     if (intervalRef.current) {
+  //       clearInterval(intervalRef.current);
+  //     }
+  //   };
+  // }, []);
+
+  const captureFrame = async () => {
+    if (cameraRef.current) {
+      const options = { base64: true };
+      const data = await cameraRef.current.takePictureAsync(options);
+      const binaryData = atob(data.base64);
+      console.log(binaryData);
+    }
+  };
+
+  const flipCamera = () => {
+    setFacing((current) => (current === "back" ? "front" : "back"));
+  };
 
   if (!permission.granted) {
     // Camera permissions are not granted yet.
@@ -52,14 +87,19 @@ export default function App() {
   return (
     <View style={styles.container}>
       {/* @ts-ignore */}
-      <CameraView ref={cameraRef} style={styles.camera} facing={facing} enab>
-        <MapView
-          style={styles.map}
-          initialRegion={{
-            latitude: 37.78825,
-            longitude: -122.4324,
-            latitudeDelta: 0.0922,
-            longitudeDelta: 0.0421,
+      <CameraView ref={cameraRef} style={styles.camera} facing={facing}>
+        <BottomPopUp />
+        {/* <Map /> */}
+        {mapVisible && <Map />}
+        <Image
+          source={require("@/assets/images/camera.png")}
+          style={{
+            alignSelf: "center",
+            height: 320,
+            width: 320,
+            position: "absolute",
+            // zIndex: 10,
+            top: 242,
           }}
         />
         <SafeAreaView>
@@ -90,27 +130,8 @@ export default function App() {
             >
               Visualizer
             </Text>
-            <TouchableOpacity
-              style={styles.buttonCircle}
-              onPress={() => console.log("back")}
-            >
-              <EllipsisVerticalIcon
-                color="white"
-                size={20}
-                onPress={() => console.log("back")}
-              />
-            </TouchableOpacity>
+            <Hamburger setMapVisible={setMapVisible} flipCamera={flipCamera} />
           </View>
-          <Image
-            source={require("@/assets/images/camera.png")}
-            style={{
-              alignSelf: "center",
-              height: 320,
-              width: 320,
-              position: "absolute",
-              top: 262,
-            }}
-          />
           <View style={styles.buttonContainer}>
             <TouchableOpacity
               style={styles.button}
