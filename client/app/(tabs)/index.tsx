@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useState, useRef, useEffect } from "react";
+import { Audio } from "expo-av";
 import {
   Button,
   StyleSheet,
@@ -9,108 +9,163 @@ import {
   View,
   Image,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  ChevronLeftIcon,
+  EllipsisVerticalIcon,
+} from "react-native-heroicons/solid";
 
 import Map from "@/components/MapComponent";
 import Hamburger from "@/components/HamburgerComponent";
 import BottomPopUp from "@/components/BottomPopUp";
 
-import { LinearGradient } from "expo-linear-gradient";
-
-// icons
-import {
-  ChevronLeftIcon,
-  EllipsisVerticalIcon,
-} from "react-native-heroicons/solid";
-import { SafeAreaView } from "react-native-safe-area-context";
-
 export default function App() {
   const [facing, setFacing] = useState("back");
-  const [permission, requestPermission] = useCameraPermissions();
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [audioPermissionResponse, requestAudioPermission] =
+    Audio.usePermissions();
   const [isLoading, setIsLoading] = useState(true);
-
   const [mapVisible, setMapVisible] = useState(false);
+  const [recording, setRecording] = useState();
+  const [transcription, setTranscription] = useState("");
+  const [isTranscribing, setIsTranscribing] = useState(false);
+
+  const cameraRef = useRef(null);
 
   useEffect(() => {
     setIsLoading(false);
   }, []);
 
-  const cameraRef = useRef<any>(null);
-
-  if (!permission) {
-    // Camera permissions are still loading.
+  if (!cameraPermission || isLoading) {
     return <View />;
   }
 
-  if (isLoading) {
-    return <h1>Loading...</h1>;
-  }
-
-  // const intervalRef = useRef<any>(null);
-
-  // useEffect(() => {
-  //   return () => {
-  //     if (intervalRef.current) {
-  //       clearInterval(intervalRef.current);
-  //     }
-  //   };
-  // }, []);
-
-  const captureFrame = async () => {
-    if (cameraRef.current) {
-      const options = { base64: true };
-      const data = await cameraRef.current.takePictureAsync(options);
-      const binaryData = atob(data.base64);
-      console.log(binaryData);
-    }
-  };
-
-  const flipCamera = () => {
-    setFacing((current) => (current === "back" ? "front" : "back"));
-  };
-
-  if (!permission.granted) {
-    // Camera permissions are not granted yet.
+  if (!cameraPermission.granted) {
     return (
       <View style={styles.container}>
         <Text style={{ textAlign: "center" }}>
           We need your permission to show the camera
         </Text>
-        <Button onPress={requestPermission} title="grant permission" />
+        <Button
+          onPress={requestCameraPermission}
+          title="Grant camera permission"
+        />
       </View>
     );
   }
 
-  function toggleCameraFacing() {
+  const flipCamera = () => {
     setFacing((current) => (current === "back" ? "front" : "back"));
+  };
+
+  async function startRecording() {
+    try {
+      if (audioPermissionResponse.status !== "granted") {
+        console.log("Requesting audio permission..");
+        await requestAudioPermission();
+      }
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      console.log("Starting recording..");
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.LOW_QUALITY
+      );
+      setRecording(recording);
+      console.log("Recording started");
+    } catch (err) {
+      console.error("Failed to start recording", err);
+    }
+  }
+
+  async function stopRecording() {
+    console.log("Stopping recording..");
+    setRecording(undefined);
+    await recording.stopAndUnloadAsync();
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+    });
+    const uri = recording.getURI();
+    console.log("Recording stopped and stored at", uri);
+    await sendAudioToServer(uri);
+  }
+
+  async function sendAudioToServer(uri) {
+    setIsTranscribing(true);
+    setTranscription("");
+    const serverUrl = "http://192.168.86.184:5001/transcribe"; // Update this
+
+    try {
+      console.log("Preparing to send audio file:", uri);
+
+      const formData = new FormData();
+      formData.append("file", {
+        uri: uri,
+        type: "audio/wav",
+        name: "audio.wav",
+      });
+
+      console.log("Sending request to server:", serverUrl);
+
+      const response = await fetch(serverUrl, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      console.log("Response status:", response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const responseText = await response.text();
+      console.log("Raw server response:", responseText);
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+        console.log("Parsed server response:", result);
+      } catch (parseError) {
+        console.error("Error parsing JSON:", parseError);
+        throw new Error("Invalid JSON response from server");
+      }
+
+      if (result !== undefined) {
+        console.log("Transcription:", result);
+        setTranscription(result);
+        console.log("Transcription set");
+      } else {
+        setTranscription("Error: Unable to transcribe audio");
+      }
+    } catch (error) {
+      console.error("Detailed error:", error);
+      setTranscription(`Error: ${error.message}`);
+    } finally {
+      setIsTranscribing(false);
+    }
   }
 
   return (
     <View style={styles.container}>
-      {/* @ts-ignore */}
       <CameraView ref={cameraRef} style={styles.camera} facing={facing}>
         <BottomPopUp />
-        {/* <Map /> */}
         {mapVisible && <Map />}
-        <Image
-          source={require("@/assets/images/camera.png")}
-          style={{
-            alignSelf: "center",
-            height: 320,
-            width: 320,
-            position: "absolute",
-            // zIndex: 10,
-            top: 242,
-          }}
-        />
+        <TouchableOpacity onPress={recording ? stopRecording : startRecording}>
+          <Image
+            source={require("@/assets/images/camera.png")}
+            style={styles.cameraOverlay}
+          />
+        </TouchableOpacity>
         <SafeAreaView>
           <LinearGradient
             colors={["rgba(0, 0, 0, 0.00)", "rgba(255, 255, 255, 0.58)"]}
-            style={{
-              position: "absolute",
-              width: "120%",
-              height: 100,
-              top: 0,
-            }}
+            style={styles.topGradient}
             end={{ x: 0, y: 0 }}
             start={{ x: 0, y: 1 }}
           />
@@ -121,41 +176,24 @@ export default function App() {
             >
               <ChevronLeftIcon color="white" size={20} />
             </TouchableOpacity>
-            <Text
-              style={{
-                color: "white",
-                fontSize: 32,
-                fontWeight: "bold",
-              }}
-            >
-              Visualizer
-            </Text>
+            <Text style={styles.title}>Visualizer</Text>
             <Hamburger setMapVisible={setMapVisible} flipCamera={flipCamera} />
           </View>
-          <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={styles.button}
-              onPress={toggleCameraFacing}
-            >
-              <Text style={styles.text}>Flip Camera</Text>
-            </TouchableOpacity>
-          </View>
+          
         </SafeAreaView>
       </CameraView>
+      {isTranscribing && <Text>Transcribing audio...</Text>}
+      {transcription !== "" && (
+        <View style={styles.transcriptionContainer}>
+          <Text style={styles.transcriptionTitle}>Transcription:</Text>
+          <Text style={styles.transcriptionText}>{transcription}</Text>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  map: {
-    width: "100%",
-    height: 430,
-    position: "absolute",
-    bottom: -430 / 2,
-    borderRadius: 200,
-    left: 0,
-    right: 0,
-  },
   container: {
     flex: 1,
     justifyContent: "center",
@@ -163,19 +201,35 @@ const styles = StyleSheet.create({
   camera: {
     flex: 1,
   },
+  cameraOverlay: {
+    alignSelf: "center",
+    height: 320,
+    width: 320,
+    position: "absolute",
+    top: 242,
+  },
+  topGradient: {
+    position: "absolute",
+    width: "120%",
+    height: 100,
+    top: 0,
+  },
   buttonContainer: {
     flex: 1,
     flexDirection: "row",
     backgroundColor: "transparent",
+    justifyContent: "space-around",
+    alignItems: "flex-end",
+    marginBottom: 20,
   },
   button: {
-    flex: 1,
-    alignSelf: "flex-end",
     alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    padding: 10,
+    borderRadius: 5,
   },
   text: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 18,
     color: "white",
   },
   topButtons: {
@@ -191,5 +245,27 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.40)",
     justifyContent: "center",
     alignItems: "center",
+  },
+  title: {
+    color: "white",
+    fontSize: 32,
+    fontWeight: "bold",
+  },
+  transcriptionContainer: {
+    position: "absolute",
+    bottom: 80,
+    left: 10,
+    right: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    padding: 10,
+    borderRadius: 5,
+  },
+  transcriptionTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 5,
+  },
+  transcriptionText: {
+    fontSize: 16,
   },
 });

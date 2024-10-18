@@ -20,3 +20,6 @@ def detectHouseHoldObj(source):
     labels = [item["class"] for item in result["predictions"]]
     detections = sv.Detections.from_roboflow(result)
     return detections
+
+
+detectHouseHoldObj("./food.jpg")
