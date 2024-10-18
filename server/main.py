@@ -9,6 +9,8 @@ from flask_cors import CORS
 from flask_ngrok import run_with_ngrok
 import speech_recognition as sr
 
+from gpt import chat_completion
+
 from transcribe import transcribe
 
 # from householdObjDet import detectHouseHoldObj
@@ -17,15 +19,8 @@ from transcribe import transcribe
 app = Flask(__name__)
 CORS(app)
 
-# detector = Detector("./vehicle_yolo/vehicle_yolo5.pt")
-
-# @app.route('/detect', methods=['POST'])
-# def detect():
-#     image = request.files['image']
-#     image.save('temp.png')
-#     detector.detect('temp.png')
-#     return jsonify(detector.get_annotations())
-
+# create a queue
+transcribed_text = []
 
 @app.route('/transcribe', methods=['POST'])
 def transcribe_audio():
@@ -39,8 +34,22 @@ def transcribe_audio():
     # store the file in the current directory
     file.save(file.filename)
     text = transcribe()
-    return jsonify(text)
+    transcribed_text.append(text)
+    gptText = chat_completion(text)
+    return jsonify(gptText)
 
+@app.route('/send_image', methods=['POST'])
+def send_image():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
+    file = request.files['file']
+    print(file.filename)
+    file.save("image.jpg")
+    return jsonify("Image received")
+
+@app.route('/gpt', methods=['POST'])
+def gpt3():
+    
 
 
 if __name__ == "__main__":
