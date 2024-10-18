@@ -49,7 +49,10 @@ def send_image():
 
 @app.route('/gpt', methods=['POST'])
 def gpt3():
-    
+    data = request.json
+    message = data['message']
+    response = chat_completion(message)
+    return jsonify(response)
 
 
 if __name__ == "__main__":
